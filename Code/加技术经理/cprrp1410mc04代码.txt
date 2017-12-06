@@ -1,0 +1,833 @@
+|******************************************************************************
+|* cprrp1401mc01  0  VRC B61c c  cus
+|* ?打?印?采?购?订?单?计?划
+|* Installation user
+|* 2012-02-07
+|******************************************************************************
+|* Main table cprrp100 ?计?划?订?单, Form Type 4
+|******************************************************************************
+
+|****************************** declaration section ***************************
+declaration:
+
+  table   tcprrp100 | ?计?划?订?单
+
+  table   ttcibd200  |订货数据
+  table   ttcibd001  |物料采购数据
+  table   ttdipu001
+  table   ttcibd003
+  table   ttipcs020
+  table   ttcmcs023
+  table   ttcmcs028
+  table   ttiedm100
+  table   ttttxt010
+  table   ttccom001
+  table   tcprrp300
+  table   ttisfc930
+  table   tticst001
+  table   ttisfc010
+
+   extern  domain  cpcom.plnc       plnc.f    fixed
+   extern  domain  tckoor           type.f
+   extern  domain  tcdsca  hx.get
+
+   extern  domain  cpcom.date       date.f
+   extern  domain  cpcom.date       date.t
+   extern  domain  cpcom.date       edate.f
+   extern  domain  cpcom.date       edate.t
+   extern  domain  cprrp.orno       orno.f
+   extern  domain  cprrp.orno       orno.t
+   extern  domain  cprrp.osta       status.f
+   extern  domain  cprrp.osta       status.t
+
+   extern  domain  tcemno       planner.f,emno.f
+   extern  domain  tcemno       planner.t
+   extern  domain  tccprj       cprj.f
+   extern  domain  tccprj       cprj.t
+   extern  domain  tccsel       csel.f
+   extern  domain  tccsel       csel.t
+   extern  domain  tcorno       seqs.f
+   extern  domain  tcorno       seqs.t
+   extern  domain  cpitem       litm.f    fixed
+   extern  domain  cpitem       litm.t    fixed
+   extern  domain  tcwght  twght,allsl,jhsl,xsts,xy,zg,fp,dj,ytsl,ytzl,total.wght
+   extern  domain  tccgjh  print.choose
+   extern  string  bm(20)
+
+   extern  domain  tcqana qana.tot,qana.xz,qana.zp,taishu
+   extern domain tcghzt ghzt.p
+
+   extern  string att1(100),att2(100,20),att3(100,20),att4(100)
+   extern  long rel_length
+   extern   string  ghzt.o(100)
+
+   #pragma used dll  ottdllbw
+   #include <bic_dam>
+   #include <bic_tt>
+
+   #pragma used dll "ottstpapihand"
+   #include <bic_tt>
+   #include <bic_dam>
+   #include <bic_event>
+
+|****************************** program section ********************************
+
+
+|****************************** group section **********************************
+
+group.1:
+init.group:
+   get.screen.defaults()
+
+|****************************** choice section ********************************
+
+choice.cont.process:
+on.choice:
+   execute(print.data)
+
+choice.print.data:
+on.choice:
+
+   |***板材
+   if print.choose=tccgjh.bancai then
+      |***1***表头
+      get.header.str1()
+      rel_length = 16
+      |***2***能创建文件，并将文件头列录入文件
+      if open.files(att1,att2,rel_length) then
+         |****搜索数据并写入excle文件
+         read.main.table()
+         last.row()
+         |*****关闭文件
+         close.file.open.excel()
+      endif
+   endif
+
+   |***型材
+   if print.choose=tccgjh.xingcai then
+      |***1***表头
+      get.header.str2()
+      rel_length = 16
+      |***2***能创建文件，并将文件头列录入文件
+      if open.files(att1,att2,rel_length) then
+         |****搜索数据并写入excle文件
+         read.main.table()
+         last.row()
+         |*****关闭文件
+         close.file.open.excel()
+      endif
+   endif
+
+   |***除大五金（物资部）
+   if print.choose=tccgjh.except.dwj.wzb then
+      |***调用标准件名称规范化检查程序
+      if checkvalue_dbz()=0 then
+         get.header.str0()
+         rel_length = 7
+         |***2***能创建文件，并将文件头列录入文件
+         if open.files(att1,att2,rel_length) then
+            |****搜索数据并写入excle文件
+            error_dbz()
+            |*****关闭文件
+            close.file.open.excel()
+         endif
+      else
+         |***1***表头
+         bm="物资管理部"
+         get.header.str3()
+         rel_length = 18
+         |***2***能创建文件，并将文件头列录入文件
+         if open.files(att1,att2,rel_length) then
+            |****搜索数据并写入excle文件
+            |***20170720取消格式化
+            |format_dbz()
+            read.main.table()
+            last.row()
+            |*****关闭文件
+            close.file.open.excel()
+         endif
+      endif
+   endif
+
+   |***除大五金（生产部）
+   if print.choose=tccgjh.except.dwj.scb then
+      bm="生产管理部"
+      |***1***表头
+      get.header.str3()
+      rel_length = 20
+      |***2***能创建文件，并将文件头列录入文件
+      if open.files(att1,att2,rel_length) then
+         |****搜索数据并写入excle文件
+         read.main.table()
+         last.row()
+         |*****关闭文件
+         close.file.open.excel()
+      endif
+   endif
+
+|****************************** field section *********************************
+
+field.cprj.f:
+when.field.changes:
+   cprj.t = cprj.f
+
+field.csel.f:
+when.field.changes:
+   csel.t = csel.f
+
+field.seqs.f:
+when.field.changes:
+   seqs.t = seqs.f
+
+
+|****************************** function section ******************************
+functions:
+
+|****替代打印
+
+|****
+function line0()
+{
+   get.date.str0()
+   write.file(att3,rel_length)
+}
+
+|****1.打印板材
+function line1()
+{
+   get.date.str1()
+   write.file(att3,rel_length)
+}
+|****2.打印型材
+function line2()
+{
+   get.date.str2()
+   write.file(att3,rel_length)
+}
+|****3.打印除大五金
+function line3()
+{
+   get.date.str3()
+   write.file(att3,rel_length)
+}
+
+|****1.打印板材
+function get.header.str0()
+{
+	att1 = "标准件名称规范化错误信息"
+
+   att2(1,1) = "项目号"
+   att2(1,2) = "物料号"
+   att2(1,3) = "物料名称"
+   att2(1,4) = "搜索关键字II"
+   att2(1,5) = "标准"
+   att2(1,6) = "原材料"
+   att2(1,7) = "技术经理"
+}
+
+|****1.打印板材
+function get.header.str1()
+{
+	att1 = "华电曹重物资管理部-板材采购计划  打印时间："&sprintf$("%u(%04Y-%02m-%02d) %U(%02H%x%02m%x%02s)",utc.num(),utc.num())
+
+   att2(1,1) = "项目"
+   att2(1,2) = "部套"
+   att2(1,3) = "计划号"
+   att2(1,4) = "项目编码"
+   att2(1,5) = "物料代码"
+   att2(1,6) = "名称"
+   att2(1,7) = "规格/mm"
+   att2(1,8) = "材质"
+   att2(1,9) = "计划数量"
+   att2(1,10) = "单重"
+   att2(1,11) = "总重"
+   att2(1,12) = "采购数量kg"
+   att2(1,13) = "当前库存㎡/m"
+   att2(1,14) = "收货日期"
+   att2(1,15) = "序号"
+   att2(1,16) = "备注"
+}
+|****2.打印型材
+function get.header.str2()
+{
+	att1 = "华电曹重物资管理部-型材采购计划  打印时间："&sprintf$("%u(%04Y-%02m-%02d) %U(%02H%x%02m%x%02s)",utc.num(),utc.num())
+
+   att2(1,1) = "项目"
+   att2(1,2) = "部套代码"
+   att2(1,3) = "计划号"
+   att2(1,4) = "项目号"
+   att2(1,5) = "物料代码"
+   att2(1,6) = "名称"
+   att2(1,7) = "规格/mm"
+   att2(1,8) = "材质"
+   att2(1,9) = "订货数量"
+   att2(1,10) = "单位"
+   att2(1,11) = "单重"
+   att2(1,12) = "总重"
+   att2(1,13) = "定额数量"
+   att2(1,14) = "到货日期"
+   att2(1,15) = "备注"
+   att2(1,16) = "计划序号"
+}
+|****3.打印除大五金
+function get.header.str3()
+{
+	att1 = "华电曹重"&bm&"-采购计划  打印时间："&sprintf$("%u(%04Y-%02m-%02d) %U(%02H%x%02m%x%02s)",utc.num(),utc.num())
+
+   att2(1,1) = "项目"
+   att2(1,2) = "计划号"
+   att2(1,3) = "项目号"
+   att2(1,4) = "物料编码"
+   att2(1,5) = "名称"
+   att2(1,6) = "材质"
+   att2(1,7) = "订货数量"
+   att2(1,8) = "单位"
+   att2(1,9) = "单重"
+   att2(1,10) = "总重"
+   att2(1,11) = "计划到货日期"
+   att2(1,12) = "标准"
+   att2(1,13) = "计划序号"
+   att2(1,14) = "分类代码"
+   att2(1,15) = "分类名称"
+   att2(1,16) = "备注信息"
+   att2(1,17) = "箱装"
+   att2(1,18) = "装配"
+   att2(1,19) = "后序"
+
+}
+
+|****初始化
+function init.value()
+{
+
+}
+
+|****
+function get.date.str0()
+{
+   mb.export$(tcibd001.dsca,tcibd001.dsca)
+   mb.export$(tcibd001.seab,tcibd001.seab)
+   mb.export$(tcibd001.dscd,tcibd001.dscd)
+   mb.export$(tcibd001.dscb,tcibd001.dscb)
+   mb.export$(tccom001.nama,tccom001.nama)
+
+   att3(1,1) =tcibd001.item(1;9)
+   att3(1,2) =tcibd001.item(10;38)
+   att3(1,3) =tcibd001.dsca
+   att3(1,4) =tcibd001.seab
+   att3(1,5) =tcibd001.dscd
+   att3(1,6) =tcibd001.dscb
+   att3(1,7) =tccom001.nama
+
+   init.value()
+}
+
+|****1.打印板材
+function get.date.str1()
+{
+   mb.export$(cprrp100.cprj.d,cprrp100.cprj.d)
+   mb.export$(cprrp100.btwl.d,cprrp100.btwl.d)
+   mb.export$(tcibd001.seab,tcibd001.seab)
+   mb.export$(tcibd001.dscc,tcibd001.dscc)
+   mb.export$(tcibd001.dscb,tcibd001.dscb)
+
+   att3(1,1) =cprrp100.cprj.d
+   att3(1,2) =cprrp100.btwl.d
+   att3(1,3) =cprrp100.orno
+   att3(1,4) =cprrp100.item(4;9)
+   att3(1,5) =cprrp100.item(13;38)
+   att3(1,6) =tcibd001.seab
+   att3(1,7) =tcibd001.dscc
+   att3(1,8) =tcibd001.dscd
+   att3(1,9) =str$(cprrp100.quan)
+   att3(1,10) =str$(tcibd001.wght)
+   att3(1,11) =str$(total.wght)
+   att3(1,12) =str$(cprrp100.quan/tcibd003.conv)
+   att3(1,13) =str$(xy)
+   att3(1,14) =sprintf$("%u(%04Y-%02m-%02d) %U(%02H%x%02m%x%02s)",cprrp100.pfdt,cprrp100.pfdt)
+   att3(1,15) =cprrp100.seqs
+   att3(1,16) =tcibd001.dscd
+
+   init.value()
+}
+|****2.打印型材
+function get.date.str2()
+{
+   mb.export$(cprrp100.cprj.d,cprrp100.cprj.d)
+   mb.export$(cprrp100.btwl.d,cprrp100.btwl.d)
+   mb.export$(tcibd001.seab,tcibd001.seab)
+   mb.export$(tcibd001.dscc,tcibd001.dscc)
+   mb.export$(tcibd001.dscb,tcibd001.dscb)
+
+   att3(1,1) =cprrp100.cprj.d
+   att3(1,2) =cprrp100.btwl.d
+   att3(1,3) =cprrp100.orno
+   att3(1,4) =cprrp100.item(4;9)
+   att3(1,5) =cprrp100.item(13;38)
+   att3(1,6) =tcibd001.seab
+   att3(1,7) =tcibd001.dscc
+   att3(1,8) =tcibd001.dscb
+   att3(1,9) =str$(cprrp100.quan)
+   att3(1,10) =tcibd001.cuni
+   att3(1,11) =str$(tcibd001.wght)
+   att3(1,12) =str$(total.wght)
+   att3(1,13) =str$(cprrp100.quan/tcibd003.conv)
+   att3(1,14) =sprintf$("%u(%04Y-%02m-%02d) %U(%02H%x%02m%x%02s)",cprrp100.pfdt,cprrp100.pfdt)
+   att3(1,15) =tcibd001.dscd
+   att3(1,16) =cprrp100.seqs
+
+   init.value()
+}
+|****3.打印除大五金
+function get.date.str3()
+{
+   mb.export$(tipcs020.seak,tipcs020.seak)
+   mb.export$(tcibd001.dsca,tcibd001.dsca)
+   mb.export$(tcibd001.dscb,tcibd001.dscb)
+   mb.export$(tcibd001.dscd,tcibd001.dscd)
+   mb.export$(tcmcs028.dsca,tcmcs028.dsca)
+   mb.export$(tttxt010.text,tttxt010.text)
+
+   att3(1,1) =tipcs020.seak
+   att3(1,2) =cprrp100.orno
+   att3(1,3) =cprrp100.item(4;9)
+   att3(1,4) =cprrp100.item(13;38)
+   att3(1,5) =tcibd001.dsca
+   att3(1,6) =tcibd001.dscb
+   att3(1,7) =str$(cprrp100.quan)
+   att3(1,8) =tcibd001.cuni
+   att3(1,9) =str$(tcibd001.wght)
+   att3(1,10) =str$(total.wght)
+   att3(1,11) =sprintf$("%u(%04Y-%02m-%02d) %U(%02H%x%02m%x%02s)",cprrp100.pfdt,cprrp100.pfdt)
+   att3(1,12) =tcibd001.dscd
+   att3(1,13) =cprrp100.seqs
+   att3(1,14) =tcibd001.ccde
+   att3(1,15) =tcmcs028.dsca
+   att3(1,16) =tttxt010.text
+   att3(1,17) =str$(qana.xz)
+   att3(1,18) =str$(qana.zp)
+   att3(1,19) =hx.get
+
+   init.value()
+}
+function last.row()
+{
+   att3(1,1) ="编制/日期："
+   att3(1,2) =""
+   att3(1,3) =""
+   att3(1,4) ="执行人："
+   att3(1,5) =""
+   att3(1,6) =""
+   att3(1,7) ="批准/日期："
+   att3(1,8) =""
+   att3(1,9) =""
+   att3(1,10) =""
+   att3(1,11) =""
+   att3(1,12) =""
+   att3(1,13) =""
+   att3(1,14) =""
+   att3(1,15) =""
+   att3(1,16) =""
+   att3(1,17) =""
+   att3(1,18) =""
+   att3(1,19) =""
+   write.file(att3,rel_length)
+}
+
+
+function read.main.table()
+{
+   select tccom001.emno:emno.f
+   from tccom001
+   where tccom001.loco=:logname$
+   selectdo
+   selectempty
+      emno.f=""
+   endselect
+
+   select cprrp100.*
+   from cprrp100
+   where |cprrp100.plnc =:plnc.f
+   |and cprrp100.type =:type.f
+   |and cprrp100.orno inrange  :orno.f and :orno.t
+   |and cprrp100.psdt inrange :date.f and :date.t
+   |and cprrp100.pfdt inrange :edate.f and :edate.t
+   |and cprrp100.osta inrange :status.f and :status.t
+   |and cprrp100.cplb inrange :planner.f and :planner.t
+   cprrp100.seqs inrange :seqs.f and :seqs.t
+   |and cprrp100.btwl inrange :cprj.f and :cprj.t
+   |and cprrp100.csel inrange :csel.f and :csel.t
+   |and cprrp100.item inrange :litm.f and :litm.t
+   |***打印计划是必须是已确认状态20160219LIJIN
+   and cprrp100.osta=cprrp.osta.confirmed
+   order by cprrp100.item
+   selectdo
+      select tcibd001.*
+      from tcibd001
+      where tcibd001._index1={:cprrp100.item(4;47)}
+      selectdo
+      endselect
+
+      total.wght=tcibd001.wght*cprrp100.quan
+
+      select tcmcs023.*
+      from tcmcs023
+      where tcmcs023.citg =:tcibd001.citg
+      selectdo
+      endselect
+
+      select tcmcs028.dsca
+      from tcmcs028
+      where tcmcs028.ccde=:tcibd001.ccde
+      selectdo
+      selectempty
+         tcmcs028.dsca=""
+      endselect
+
+      select tipcs020.*
+      from tipcs020
+      where tipcs020.cprj =:cprrp100.item(4;9)
+      selectdo
+      endselect
+
+      select tcibd200.*
+      from tcibd200
+      where tcibd200._index1={:cprrp100.item(4;47)}
+      selectdo
+      endselect
+
+      select tdipu001.*
+      from tdipu001
+      where tdipu001._index1={:cprrp100.item(4;47)}
+      selectdo
+      endselect
+
+      select tcibd003.*
+      from tcibd003
+      where tcibd003.item= {:cprrp100.item(4;47)}
+      selectdo
+      endselect
+
+      |*****仓库数据
+      select SUM(whwmd215.qhnd):xy,SUM(whwmd215.qord):zg,SUM(whwmd215.qall):fp,SUM(whwmd215.qblk):dj from whwmd215
+      where whwmd215.item = :cprrp100.item(4;47)
+      group by whwmd215.item
+      selectdo
+      selectempty
+         xy=0
+         zg=0
+         fp=0
+         dj=0
+      endselect
+
+      |***获得采购单位
+      select tdipu001.cuqp  from tdipu001
+      where tdipu001.item =:cprrp100.item(4;47)
+      selectdo
+      endselect
+
+      |***获得仓储单位
+      select tcibd001.cuni,tcibd001.citg from tcibd001
+      where tcibd001.item =:cprrp100.item(4;47)
+      selectdo
+         select tcmcs023.dsca from tcmcs023
+         where tcmcs023.citg = :tcibd001.citg
+         selectdo
+         endselect
+      endselect
+
+      |****获得物料的备注
+      select tiedm100.txta
+      from tiedm100
+      where tiedm100.eitm=:cprrp100.item(4;47)
+      and tiedm100.exdt=0
+      and tiedm100.rele=4
+      selectdo
+         select tttxt010.text from tttxt010
+         where tttxt010.ctxt=:tiedm100.txta
+         selectdo
+         selectempty
+            tttxt010.text=""
+         endselect
+      endselect
+
+      |***供货状态
+      |ghzt=next_step(cprrp100.item(4;47))
+
+      |ghzt.f=""
+      |ghzt=ltoe(0)
+      |qana=0
+
+      |select tisfc930.ghzt:ghzt,sum(tisfc930.qana):qana
+      |from tisfc930
+      |where tisfc930.xnit=:cprrp100.item(4;47)
+      |group by tisfc930.ghzt
+      |selectdo
+         |ghzt.f=ghzt.f&enum.descr$("tcghzt",ghzt)&","&str$(qana)&","
+      |endselect
+
+      select sum(tdsls401.qoor):taishu
+      from tdsls401
+      where tdsls401.cprj=:cprrp100.item(4;9)
+      selectdo
+      selectempty
+         taishu=0
+      endselect
+
+      qana.tot=0
+      qana.xz=0
+      qana.zp=0
+
+      select tisfc930.th,tisfc930.qana,tisfc930.ghzt
+      from tisfc930
+      where tisfc930.item=:cprrp100.item(4;47)
+      selectdo
+         if trim$(tisfc930.th)="0" then
+            qana.tot=qana.tot+tisfc930.qana*taishu
+            if tisfc930.ghzt=tcghzt.xz then
+               qana.xz=qana.xz+tisfc930.qana*taishu
+            endif
+         else
+            qana.tot=qana.tot+tisfc930.qana
+            if tisfc930.ghzt=tcghzt.xz then
+               qana.xz=qana.xz+tisfc930.qana
+            endif
+         endif
+      endselect
+
+      hx.get=""
+      select tisfc930.ghzt:ghzt.p
+      from tisfc930
+      where tisfc930.xnit=:cprrp100.item(4;47)
+      as set with 1 rows
+      selectdo
+      selectempty
+         ghzt.p=ltoe(0)
+      endselect
+      ghzt.o=enum.descr$("tcghzt",ghzt.p)
+
+      if  trim$(ghzt.o)<>""  then
+         hx.get=ghzt.o
+      else
+         select ticst001.pdno
+         from ticst001,tisfc001
+         where ticst001.sitm=:tcibd001.item
+         and tisfc001.pdno=ticst001.pdno
+         selectdo
+            select tisfc010.cwoc,tisfc010.pfdt
+            from tisfc010
+            where tisfc010.pdno=:ticst001.pdno
+            and tisfc010.opno=10
+            selectdo
+               hx.get=str$(gethxbz(tisfc010.cwoc))
+            selectempty
+               hx.get=""
+            endselect
+         selectempty
+         endselect
+      endif
+      mb.export$(hx.get,hx.get)
+
+
+
+
+
+
+
+
+
+      qana.zp=qana.tot-qana.xz
+
+      |***插入记录表
+      insert.cprrp300(cprrp100.seqs,cprrp100.orno,cprrp100.item(4;47),cprrp100.quan,emno.f)
+
+
+      if print.choose=tccgjh.bancai then
+         line1()
+      endif
+
+      if print.choose=tccgjh.xingcai then
+         line2()
+      endif
+
+      if print.choose=tccgjh.except.dwj.wzb then
+         line3()
+      endif
+
+      if print.choose=tccgjh.except.dwj.scb then
+         line3()
+      endif
+   endselect
+}
+
+function long checkvalue_dbz()
+{
+   long flag
+   flag=1
+
+   select cprrp100.*
+   from cprrp100
+   where |cprrp100.plnc =:plnc.f
+   |and cprrp100.type =:type.f
+   |and cprrp100.orno inrange :orno.f and :orno.t
+   |and cprrp100.psdt inrange :date.f and :date.t
+   |and cprrp100.pfdt inrange :edate.f and :edate.t
+   |and cprrp100.osta inrange :status.f and :status.t
+   |and cprrp100.cplb inrange :planner.f and :planner.t
+   cprrp100.seqs inrange :seqs.f and :seqs.t
+   |and cprrp100.btwl inrange :cprj.f and :cprj.t
+   |and cprrp100.csel inrange :csel.f and :csel.t
+   |and cprrp100.item inrange :litm.f and :litm.t
+   |***打印计划是必须是已确认状态20160219LIJIN
+   and cprrp100.osta=cprrp.osta.confirmed
+   order by cprrp100.item
+   selectdo
+      select tcibd001.*
+      from tcibd001
+      where tcibd001.item=:cprrp100.item(4;47)
+      and tcibd001.citg="DBZ"
+      selectdo
+         if trim$(tcibd001.seab)="" or trim$(tcibd001.dscd)="" or trim$(tcibd001.dscb)="" then
+            flag=0
+            return(flag)
+         endif
+      endselect
+   endselect
+
+   return(flag)
+}
+
+function error_dbz()
+{
+   select cprrp100.*
+   from cprrp100
+   where |cprrp100.plnc =:plnc.f
+   |and cprrp100.type =:type.f
+   |and cprrp100.orno inrange :orno.f and :orno.t
+   |and cprrp100.psdt inrange :date.f and :date.t
+   |and cprrp100.pfdt inrange :edate.f and :edate.t
+   |and cprrp100.osta inrange :status.f and :status.t
+   |and cprrp100.cplb inrange :planner.f and :planner.t
+   cprrp100.seqs inrange :seqs.f and :seqs.t
+   |and cprrp100.btwl inrange :cprj.f and :cprj.t
+   |and cprrp100.csel inrange :csel.f and :csel.t
+   |and cprrp100.item inrange :litm.f and :litm.t
+   |***打印计划是必须是已确认状态20160219LIJIN
+   and cprrp100.osta=cprrp.osta.confirmed
+   order by cprrp100.item
+   selectdo
+      select tcibd001.*
+      from tcibd001
+      where tcibd001.item=:cprrp100.item(4;47)
+      and tcibd001.citg="DBZ"
+      selectdo
+         if trim$(tcibd001.seab)="" or trim$(tcibd001.dscd)="" or trim$(tcibd001.dscb)="" then
+            tiedm100.engi=""
+            tccom001.nama=""
+            select tiedm100.engi
+            from tiedm100
+            where tiedm100.eitm=:tcibd001.item
+            and tiedm100.exdt=0
+            selectdo
+            endselect
+
+            select tccom001.nama
+            from tccom001
+            where tccom001.emno=:tiedm100.engi
+            selectdo
+            endselect
+
+            line0()
+         endif
+      endselect
+   endselect
+}
+
+function format_dbz()
+{
+   domain tcdsca error.msg
+
+   select cprrp100.*
+   from cprrp100
+   where |cprrp100.plnc =:plnc.f
+   |and cprrp100.type =:type.f
+   |and cprrp100.orno inrange :orno.f and :orno.t
+   |and cprrp100.psdt inrange :date.f and :date.t
+   |and cprrp100.pfdt inrange :edate.f and :edate.t
+   |and cprrp100.osta inrange :status.f and :status.t
+   |and cprrp100.cplb inrange :planner.f and :planner.t
+   cprrp100.seqs inrange :seqs.f and :seqs.t
+   |and cprrp100.btwl inrange :cprj.f and :cprj.t
+   |and cprrp100.csel inrange :csel.f and :csel.t
+   |and cprrp100.item inrange :litm.f and :litm.t
+   |***打印计划是必须是已确认状态20160219LIJIN
+   and cprrp100.osta=cprrp.osta.confirmed
+   order by cprrp100.item
+   selectdo
+      select tcibd001.*
+      from tcibd001
+      where tcibd001.item=:cprrp100.item(4;47)
+      and tcibd001.citg="DBZ"
+      selectdo
+         |***替换AFS
+         stpapi.put.field("tcibd0501mc52","item.f.segment.1",tcibd001.item(1;9))
+         stpapi.put.field("tcibd0501mc52","item.f.segment.2",tcibd001.item(10;38))
+         stpapi.put.field("tcibd0501mc52","item.t.segment.1",tcibd001.item(1;9))
+         stpapi.put.field("tcibd0501mc52","item.t.segment.2",tcibd001.item(10;38))
+         stpapi.put.field("tcibd0501mc52","citg.f","DBZ")
+         stpapi.put.field("tcibd0501mc52","citg.t","DBZ")
+         stpapi.form.command("tcibd0501mc52",5,"user.1",error.msg)
+         stpapi.end.session("tcibd0501mc52")
+
+         |***标准化AFS
+         stpapi.put.field("tcibd0501mc49","item.f.segment.1",tcibd001.item(1;9))
+         stpapi.put.field("tcibd0501mc49","item.f.segment.2",tcibd001.item(10;38))
+         stpapi.put.field("tcibd0501mc49","item.t.segment.1",tcibd001.item(1;9))
+         stpapi.put.field("tcibd0501mc49","item.t.segment.2",tcibd001.item(10;38))
+         stpapi.form.command("tcibd0501mc49",5,"user.1",error.msg)
+         stpapi.end.session("tcibd0501mc49")
+
+         |***新增分类AFS
+         stpapi.put.field("tcmcs0128mc03","item.f.segment.1",tcibd001.item(1;9))
+         stpapi.put.field("tcmcs0128mc03","item.f.segment.2",tcibd001.item(10;38))
+         stpapi.put.field("tcmcs0128mc03","item.t.segment.1",tcibd001.item(1;9))
+         stpapi.put.field("tcmcs0128mc03","item.t.segment.2",tcibd001.item(10;38))
+         stpapi.form.command("tcmcs0128mc03",5,"user.1",error.msg)
+         stpapi.end.session("tcmcs0128mc03")
+      endselect
+   endselect
+}
+
+function insert.cprrp300(domain tcorno seqs.p,domain tcorno orno.p,domain tcitem item.p,domain cpcom.quan quan.p,domain tcemno cplb.p)
+{
+   select cprrp300.*
+   from cprrp300
+   where cprrp300.seqs=:seqs.p
+   and cprrp300.orno=:orno.p
+   selectdo
+   selectempty
+      db.set.to.default(tcprrp300)
+      cprrp300.seqs=seqs.p
+      cprrp300.orno=orno.p
+      cprrp300.item=item.p
+      cprrp300.quan=quan.p
+      cprrp300.cplb=cplb.p
+      cprrp300.time=utc.num()
+      db.insert(tcprrp300,db.retry)
+      commit.transaction()
+   endselect
+}
+
+function domain tcdsca gethxbz(domain tccwoc  cwoc.o)
+{
+   domain  tcdsca  dsca.p
+   select  tirou001.dsca:dsca.p
+   from tirou001
+   where tirou001.cwoc=:cwoc.o
+   selectdo
+   selectempty
+   dsca.p=""
+   endselect
+   return (dsca.p)
+}
+

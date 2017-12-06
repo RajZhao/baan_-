@@ -1,0 +1,17 @@
+      if flag.imp=2 then
+      select *
+      from tisfc027 for update
+      where tisfc027.pdno=:pdno.f and tisfc027.gbzt>2 and tisfc027.seri=:seri.f
+      selectdo
+         tisfc027.gbzt=tigbzt.ysh
+         select *
+         from tisfc029 for update
+         where tisfc029.pdno=:pdno.f and tisfc029.mon=:mon.f and tisfc029.seri=:seri.f
+            selectdo
+               tisfc029.shenhe=tcyesno.yes
+               db.update(ttisfc029,db.retry)
+            endselect
+         db.update(ttisfc027,db.retry)
+      endselect
+       commit.transaction()
+      endif
